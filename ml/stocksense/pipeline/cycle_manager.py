@@ -16,6 +16,7 @@ import logging
 import os
 import time
 import sys
+from pathlib import Path
 
 # Add the ml directory to sys.path so 'stocksense' module can be imported
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -25,11 +26,48 @@ from typing import Optional, Tuple
 logger = logging.getLogger(__name__)
 
 
+def _resolve_buffer_dir(data_base: str) -> str:
+    """Normalize the buffer directory path.
+
+    Accepts either:
+    - DATA_BASE pointing at ml/data
+    - DATA_BASE pointing directly at ml/data/buffers
+    """
+    normalized = os.path.normpath(data_base)
+    if os.path.basename(normalized) == "buffers":
+        return normalized
+    return os.path.join(normalized, "buffers")
+
+
+def _find_latest_archived_retain(buffer_dir: str) -> Optional[str]:
+    """Return the newest archived retain buffer path, if available.
+
+    Looks under buffers/archive/cycle_*/ for retain_buffer.jsonl
+    (including timestamp-suffixed variants).
+    """
+    archive_dir = Path(buffer_dir) / "archive"
+    if not archive_dir.exists():
+        return None
+
+    candidates = []
+    for path in archive_dir.glob("cycle_*/retain_buffer.jsonl*"):
+        if path.is_file() and path.stat().st_size > 0:
+            candidates.append(path)
+
+    if not candidates:
+        return None
+
+    latest = max(candidates, key=lambda p: p.stat().st_mtime)
+    return str(latest)
+
+
 @dataclass
 class Metrics:
     """Cycle evaluation metrics for gate checks."""
     forget_ppl: float = 0.0
     retain_ppl: float = 0.0
+    forget_acc: float = 0.0
+    retain_acc: float = 0.0
     mae_validation: Optional[float] = None
     directional_acc: float = 0.0
     mia_auc: float = 0.5
@@ -103,7 +141,7 @@ class CycleManager:
             "OUTPUT_BASE", "./output/stock"
         )
         self.data_base = data_base or os.environ.get(
-            "DATA_BASE", "./data/buffers"
+            "DATA_BASE", "./data"
         )
 
     def run_cycle(
@@ -393,6 +431,8 @@ class CycleManager:
                 "gate_failure": gate_failure if not deployed else None,
                 "forget_ppl": _safe_float(new_metrics.forget_ppl),
                 "retain_ppl": _safe_float(new_metrics.retain_ppl),
+                "forget_acc": _safe_float(new_metrics.forget_acc),
+                "retain_acc": _safe_float(new_metrics.retain_acc),
                 "mae_validation": _safe_float(new_metrics.mae_validation),
                 "directional_acc": _safe_float(new_metrics.directional_acc),
                 "mia_auc": _safe_float(new_metrics.mia_auc),
@@ -423,6 +463,8 @@ class CycleManager:
                 return Metrics(
                     forget_ppl=entry.get("forget_ppl", 0),
                     retain_ppl=entry.get("retain_ppl", 0),
+                    forget_acc=entry.get("forget_acc", 0),
+                    retain_acc=entry.get("retain_acc", 0),
                     mae_validation=entry.get("mae_validation"),
                     directional_acc=entry.get("directional_acc", 0),
                     mia_auc=entry.get("mia_auc", 0.5),

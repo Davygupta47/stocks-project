@@ -22,7 +22,8 @@ class ModelRegistry:
 
     def __init__(self, output_base: Optional[str] = None):
         self.output_base = output_base or OUTPUT_BASE
-        self.current_link = os.path.join(self.output_base, "current")
+        self.current_dir = os.path.join(self.output_base, "current")
+        self.current_link = os.path.join(self.current_dir, "stocksense-qwen")
 
     def get_current_model_path(self) -> Optional[str]:
         """Get the path to the currently deployed model."""
@@ -77,6 +78,9 @@ class ModelRegistry:
             raise FileNotFoundError(
                 f"No model found for cycle {cycle_num} at {cycle_dir}"
             )
+
+        # Ensure current directory exists
+        os.makedirs(self.current_dir, exist_ok=True)
 
         # Remove old symlink
         if os.path.exists(self.current_link) or os.path.islink(

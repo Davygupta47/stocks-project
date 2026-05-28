@@ -195,4 +195,11 @@ def _evaluate_from_model(
     except Exception as e:
         logger.error(f"Model evaluation failed: {e}")
         return {"mae": float("inf"), "directional_acc": 0.0}
+        
+    finally:
+        if 'predictor' in locals():
+            del predictor
+        import torch
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 

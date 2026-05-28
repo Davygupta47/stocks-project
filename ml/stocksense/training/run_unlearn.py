@@ -225,6 +225,10 @@ if __name__ == "__main__":
     parser.add_argument("--output_dir", default="./output/stock/unlearn")
     parser.add_argument("--method", default="ascent_plus_descent")
     parser.add_argument("--lr", type=float, default=5e-6)
+    parser.add_argument("--epochs", type=int, default=1)
+    parser.add_argument("--batch_size", type=int, default=1)
+    parser.add_argument("--max_steps", type=int, default=-1)
+    parser.add_argument("--gradient_accumulation", type=int, default=8)
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO)
